@@ -2,6 +2,16 @@ version: '3.8' # Specifies the docker-compose file version
 
 services: # The main container for all your services
 
+  envoy:
+    build: ./envoy
+    container_name: envoy
+    ports:
+      - "8080:8080"  # This is the main traffic port
+      - "9901:9901"  # This is for Envoy's admin dashboard
+    depends_on:
+      - service-a
+      - service-b
+      
   service-a:
     build: ./service-a  # Tells Docker to build an image from the Dockerfile in the './service-a' folder
     container_name: service-a
