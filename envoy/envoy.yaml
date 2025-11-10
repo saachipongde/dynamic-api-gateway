@@ -1,62 +1,66 @@
-static_resources:
-  listeners:
-    - name: listener_0
-      address:
-        socket_address: 
-          address: 0.0.0.0
-          port_value: 8080
-      filter_chains:
-        - filters:
-            - name: envoy.filters.network.http_connection_manager
-              typed_config:
-                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-                stat_prefix: ingress_http
-                route_config:
-                  name: local_route
-                  virtual_hosts:
-                    - name: local_service
-                      domains: ["*"]
-                      routes:
-                        - match: { prefix: "/service-a" }
-                          route: 
-                            cluster: cluster_service_a
-                            prefix_rewrite: "/"
-                        - match: { prefix: "/service-b" }
-                          route: 
-                            cluster: cluster_service_b
-                            prefix_rewrite: "/"
-                http_filters:
-                  - name: envoy.filters.http.router
-                    typed_config:
-                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
-
-  clusters:
-    - name: cluster_service_a
-      type: LOGICAL_DNS
-      load_assignment:
-        cluster_name: cluster_service_a
-        endpoints:
-          - lb_endpoints:
-              - endpoint:
-                  address:
-                    socket_address: 
-                      address: service-a
-                      port_value: 3000
-
-    - name: cluster_service_b
-      type: LOGICAL_DNS
-      load_assignment:
-        cluster_name: cluster_service_b
-        endpoints:
-          - lb_endpoints:
-              - endpoint:
-                  address:
-                    socket_address: 
-                      address: service-b
-                      port_value: 3000
-
 admin:
   address:
-    socket_address: 
+    socket_address:
       address: 0.0.0.0
       port_value: 9901
+
+node:
+  id: test-id
+  cluster: test-cluster
+
+static_resources:
+  listeners:
+  - name: listener_0
+    address:
+      socket_address:
+        address: 0.0.0.0
+        port_value: 8080
+    filter_chains:
+    - filters:
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          stat_prefix: ingress_http
+          rds:
+            route_config_name: local_route
+            config_source:
+              ads: {}
+              resource_api_version: V3
+          http_filters:
+          - name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+  clusters:
+  # This is the static cluster for the control plane itself
+  - name: xds_cluster
+    type: STRICT_DNS
+    
+    # Force this cluster to use HTTP/2, which is required for gRPC.
+    typed_extension_protocol_options:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        explicit_http_config:
+          http2_protocol_options: {} # This empty object is correct
+    
+    load_assignment:
+      cluster_name: xds_cluster
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: control-plane
+                port_value: 18000
+
+# This block is correct
+dynamic_resources:
+  ads_config:
+    api_type: GRPC
+    transport_api_version: V3
+    grpc_services:
+      - envoy_grpc:
+          cluster_name: xds_cluster
+  cds_config:
+    ads: {} # This empty object is correct
+    resource_api_version: V3

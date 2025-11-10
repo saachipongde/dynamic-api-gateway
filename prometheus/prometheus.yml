@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s # How often to scrape
+
+scrape_configs:
+  - job_name: 'service-a'
+    static_configs:
+      - targets: ['service-a:3000'] # Docker DNS will find 'service-a'
+
+  - job_name: 'service-b'
+    static_configs:
+      - targets: ['service-b:3000']
+
+  - job_name: 'envoy'
+    metrics_path: /stats/prometheus
+    static_configs:
+      - targets: ['envoy:9901'] # Envoy's admin/metrics port

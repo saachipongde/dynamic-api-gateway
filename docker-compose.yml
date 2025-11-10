@@ -1,25 +1,55 @@
-version: '3.8' # Specifies the docker-compose file version
+version: '3.8'
 
-services: # The main container for all your services
+services:
 
   envoy:
     build: ./envoy
     container_name: envoy
     ports:
-      - "8080:8080"  # This is the main traffic port
-      - "9901:9901"  # This is for Envoy's admin dashboard
+      - "8080:8080"  # Main traffic port
+      - "9901:9901"  # Admin/metrics port
+    command: /usr/local/bin/envoy -c /etc/envoy/envoy.yaml --log-level info
     depends_on:
-      - service-a
-      - service-b
-      
+      - control-plane # Make sure Envoy starts *after* our brain
+
+  control-plane:
+    build: ./control-plane
+    container_name: control-plane
+    ports:
+      - "18000:18000" # This is the gRPC port for Envoy
+
   service-a:
-    build: ./service-a  # Tells Docker to build an image from the Dockerfile in the './service-a' folder
+    build: ./service-a
     container_name: service-a
     ports:
-      - "3001:3000" # Maps your computer's port 3001 to the container's port 3000
+      - "3001:3000"
 
   service-b:
-    build: ./service-b  # Tells Docker to build an image from the Dockerfile in the './service-b' folder
+    build: ./service-b
     container_name: service-b
     ports:
-      - "3002:3000" # Maps your computer's port 3002 to the container's port 3000
+      - "3002:3000"
+
+  prometheus:
+    image: prom/prometheus:v2.40.1
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    depends_on:
+      - envoy
+      - service-a
+      - service-b
+
+  grafana:
+    image: grafana/grafana-oss:9.2.0
+    container_name: grafana
+    ports:
+      - "3003:3000"
+    volumes:
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
