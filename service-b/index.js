@@ -29,7 +29,7 @@ const httpRequestDuration = new client.Histogram({
 // 3. Instrument the main endpoint
 app.get('/', (req, res) => {
   console.log('Request received for service-b');
-  
+
   // Start the timer
   const end = httpRequestDuration.startTimer({
     method: req.method,
@@ -49,6 +49,22 @@ app.get('/', (req, res) => {
     route: req.path,
     status_code: res.statusCode,
   });
+
+  // Simulate 500ms latency before sending response
+  // setTimeout(() => {
+  //   res.json({
+  //     service: "service-b",
+  //     status: "ok"
+  //   });
+
+  //   // Stop timer and record success
+  //   end();
+  //   httpRequestCounter.inc({
+  //     method: req.method,
+  //     route: req.path,
+  //     status_code: res.statusCode,
+  //   });
+  // }, 500);
 });
 
 // 4. Expose the /metrics endpoint

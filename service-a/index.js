@@ -35,8 +35,6 @@ app.get('/', (req, res) => {
     method: req.method,
     route: req.path,
   });
-  var count = 0;
-  while(count<100000000) count++;
 
   // Send the response
   res.json({
